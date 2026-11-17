@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<title>给 Agent 装一块驾驶舱 · 技术栈全景图</title>
+<style>
+@font-face{font-family:"WenKai";src:url("../assets/wenkai-medium.woff2") format("woff2");font-weight:600 900;font-display:swap}
+:root{
+  --bg:#0f141a;--surface:#161e27;--raised:#1c2731;--ink:#d9e4e0;--ink2:#a9bab3;--muted:#7e918c;--faint:#5b6d67;
+  --line:#25313a;--line2:#1b242d;--steel:#54b8ac;--steel-soft:rgba(84,184,172,.11);
+  --orange:#f2a640;--orange-soft:rgba(242,166,64,.13);--green:#5fce8e;--red:#ef6a5a;
+  --mono:ui-monospace,Consolas,monospace;
+}
+*{box-sizing:border-box}html,body{margin:0;padding:0}
+body{width:900px;background:var(--bg);color:var(--ink);font-family:"WenKai","Microsoft YaHei",sans-serif;padding:44px 46px 36px;
+  background-image:linear-gradient(rgba(214,228,222,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(214,228,222,.045) 1px,transparent 1px),radial-gradient(700px 340px at 84% -6%,rgba(84,184,172,.07),transparent 62%);background-size:44px 44px,44px 44px,auto}
+.head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;border-bottom:2px solid var(--line);padding-bottom:14px}
+.eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.22em;color:var(--steel);margin:0 0 9px}
+h1{margin:0;font-size:32px;line-height:1.2;font-weight:800}h1 em{font-style:normal;color:var(--orange)}
+.head .meta{text-align:right;font-family:var(--mono);font-size:9.5px;line-height:1.95;color:var(--faint);white-space:nowrap}
+.dek{margin:14px 0 18px;font-size:13px;line-height:1.8;color:var(--ink2);max-width:780px}
+.sect{font-family:var(--mono);font-size:9px;letter-spacing:.2em;color:var(--faint);margin:18px 0 8px}
+.sect b{color:var(--orange)}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.card{border:1px solid var(--line);border-radius:6px;background:var(--surface);overflow:hidden}
+.card .ch{padding:9px 13px 7px;border-bottom:1px solid var(--line2);font-weight:800;font-size:13.5px}
+.card .ch small{display:block;font-family:var(--mono);font-size:8.5px;letter-spacing:.14em;color:var(--steel);margin-bottom:3px;font-weight:400}
+.card .cb{padding:8px 13px 10px;font-size:11px;line-height:1.75;color:var(--ink2)}
+.card .cb b{color:var(--ink)}
+.card.hl .ch{background:var(--orange-soft);border-top:2px solid var(--orange)}
+.bar{margin:20px 0 0;border-radius:8px;background:var(--raised);border:1px solid var(--line);color:var(--ink2);padding:14px 18px;font-family:var(--mono);font-size:11px;line-height:1.9;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.bar b{color:var(--green)}
+.foot{margin-top:16px;font-family:var(--mono);font-size:9px;letter-spacing:.14em;color:var(--faint);display:flex;justify-content:space-between}
+</style>
+</head>
+<body>
+<div class="head">
+  <div><div class="eyebrow">造物手记 VOL.16 · TECH STACK</div>
+  <h1>给 Agent 装一块<em>驾驶舱</em> · 技术栈全景图</h1></div>
+  <div class="meta">agent-cockpit · INSTRUMENT PANEL<br/>6 章 · 6 互动 · 零依赖<br/>2026.11 · StarrySea1412</div>
+</div>
+<div class="dek">解剖一台本机 Agent 工作台的观测层：九种事件从内核出发，排成五块仪表、一台 8 态审批机、一个黑匣子和一条 90 秒看门狗。</div>
+<div class="sect">01 · <b>解剖标本</b> hermes-agent-workbench</div>
+<div class="cards">
+  <div class="card hl"><div class="ch">规模与资质<small>SPECIMEN</small></div><div class="cb">前端 <b>7,811 行</b> React + Django 后端，<b>179 个测试</b>；作者 StarrySea1412，只读解剖</div></div>
+  <div class="card"><div class="ch">事件流<small>WIRE PROTOCOL</small></div><div class="cb"><b>9 种事件</b>：status / thought_delta / tool_call / tool_result / tool_approval / delta / done / error…；SSE 推送 + <b>3s/5s 轮询兜底</b></div></div>
+  <div class="card"><div class="ch">审批机<small>STATE MACHINE</small></div><div class="cb">ToolExecution <b>8 态</b> · AgentRun <b>5 态</b> · <b>APPROVAL_TIMEOUT 120s</b> · CAS 认领 · 幂等 <b>200/409</b></div></div>
+</div>
+<div class="sect">02 · <b>观测与防线</b> 三台仪表</div>
+<div class="cards">
+  <div class="card"><div class="ch">黑匣子<small>TRACE</small></div><div class="cb">旁证三台真驾驶舱：Timeline <b>[&nbsp;218ms]</b> 时间线 / 11 阶段 trace 合并脱敏 / 纯追加 steps</div></div>
+  <div class="card"><div class="ch">看门狗<small>WATCHDOG</small></div><div class="cb"><b>AI_FIRST_TOKEN_TIMEOUT=90s</b>：只看第一帧；泵线程 + 队列包装，超时交给降级链</div></div>
+  <div class="card"><div class="ch">降级表达<small>UX</small></div><div class="cb">链路切换 = <b>中性提示</b>不渲染红色横幅；诊断字段可一键复制</div></div>
+</div>
+<div class="sect">03 · <b>文章与小样</b> 六章六台</div>
+<div class="bar">
+  <span>盲飞对照 / 事件流总装 / 状态机探照灯 / <b>审批闸门（12 倍速时钟）</b>/ 黑匣子重放 / 看门狗 —— 全部确定性可重放</span>
+  <span>深度配方：<b>同一条事件流（10 行）</b>贯穿全篇</span>
+</div>
+<div class="foot"><span>插图 6 WebP + hero GIF 14 帧 · 全 GPT 系（crz / xjbh / 噜皮）</span><span>starrysea1412.github.io/agent-cockpit</span></div>
+</body>
+</html>
