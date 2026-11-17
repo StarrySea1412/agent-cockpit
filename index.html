@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>给 Agent 装一块驾驶舱 · 造物手记 VOL.16</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="wrap">
+<div class="topbar">
+  <div class="brand">🛩️ 造物手记 VOL.16</div>
+  <div class="edition">INSTRUMENT PANEL / 座舱仪表 · BOARD 16 · 2026.11</div>
+</div>
+<div class="hero">
+  <div class="eyebrow">FIELD NOTES · <b>一次关于「看得见」的解剖</b></div>
+  <h1>给 Agent 装一块<em>驾驶舱</em>
+  <span class="sub">你说「把这份笔记整理成周报」，Agent 回一句「好的」然后沉默了十分钟——它在干活还是在编故事？聊天窗口答不了这个问题。这篇解剖一台本机自研的 Agent 工作台：九种事件从内核出发，在仪表上排成面板，在手不离杆的审批闸门前停靠 120 秒，落进黑匣子，再被 90 秒看门狗押着走。<b>六段互动全部确定性、可重放</b>，每一块仪表都对到真实源码。</span>
+  </h1>
+  <div class="hero-meta">
+    <span class="pill"><b>9 种事件</b> · 一条流</span>
+    <span class="pill"><b>8 态</b> 审批机 · 120s 过期</span>
+    <span class="pill"><b>6 段互动</b> · 全部确定性</span>
+    <span class="pill"><b>179 个测试</b> 的标本 · 零依赖</span>
+  </div>
+</div>
+<div class="fig">
+<svg viewBox="0 0 928 470" width="100%" role="img" aria-label="驾驶舱总览：九种事件从内核出发，经总线进入六块仪表">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--steel)"/></marker>
+    <marker id="arA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--orange)"/></marker>
+  </defs>
+  <rect x="4" y="4" width="920" height="462" rx="18" fill="var(--card)" stroke="var(--line-strong)" stroke-width="2"/>
+  <text x="30" y="38" font-family="Consolas,monospace" font-size="12" letter-spacing="3" fill="var(--faint)">AGENT COCKPIT · 主仪表板</text>
+  <circle cx="898" cy="33" r="6" fill="var(--green)"><animate attributeName="opacity" values="1;.25;1" dur="1.6s" repeatCount="indefinite"/></circle>
+  <rect x="26" y="60" width="212" height="360" rx="12" fill="var(--night)" stroke="var(--line-strong)"/>
+  <text x="42" y="88" font-family="Consolas,monospace" font-size="12" fill="var(--night-dim)" letter-spacing="2">内核 ai_service · 打点</text>
+  <g font-family="Consolas,monospace" font-size="12.5" fill="var(--ink-soft)">
+    <g><rect x="42" y="104" width="180" height="26" rx="6" fill="var(--steel-soft)" stroke="var(--steel)" stroke-opacity=".45"/><text x="54" y="122" fill="var(--steel)">status</text><circle cx="208" cy="117" r="4" fill="var(--steel)"/></g>
+    <g><rect x="42" y="136" width="180" height="26" rx="6" fill="none" stroke="var(--line-strong)"/><text x="54" y="154">thought / thought_delta</text><circle cx="208" cy="149" r="4" fill="var(--steel)"/></g>
+    <g><rect x="42" y="168" width="180" height="26" rx="6" fill="none" stroke="var(--line-strong)"/><text x="54" y="186">tool_call</text><circle cx="208" cy="181" r="4" fill="var(--steel)"/></g>
+    <g><rect x="42" y="200" width="180" height="26" rx="6" fill="none" stroke="var(--line-strong)"/><text x="54" y="218">tool_result</text><circle cx="208" cy="213" r="4" fill="var(--steel)"/></g>
+    <g><rect x="42" y="232" width="180" height="26" rx="6" fill="var(--orange-soft)" stroke="var(--orange)" stroke-opacity=".5"/><text x="54" y="250" fill="var(--orange)">tool_approval</text><circle cx="208" cy="245" r="4" fill="var(--orange)"/></g>
+    <g><rect x="42" y="264" width="180" height="26" rx="6" fill="none" stroke="var(--line-strong)"/><text x="54" y="282">delta</text><circle cx="208" cy="277" r="4" fill="var(--steel)"/></g>
+    <g><rect x="42" y="296" width="180" height="26" rx="6" fill="none" stroke="var(--line-strong)"/><text x="54" y="314">done · error</text><circle cx="208" cy="309" r="4" fill="var(--steel)"/></g>
+  </g>
+  <text x="42" y="348" font-family="Consolas,monospace" font-size="11" fill="var(--faint)">SSE 推送 ▸ 3s/5s 轮询兜底</text>
+  <text x="42" y="368" font-family="Consolas,monospace" font-size="11" fill="var(--faint)">reconcile() 每次查询顺手修状态</text>
+  <rect x="42" y="384" width="180" height="26" rx="6" fill="none" stroke="var(--line-strong)" stroke-dasharray="4 3"/>
+  <text x="54" y="402" font-family="Consolas,monospace" font-size="11.5" fill="var(--night-dim)">event bus · 一条流</text>
+  <path d="M226 240 H300" stroke="var(--steel)" stroke-width="2.5" marker-end="url(#ar)"/>
+  <rect x="300" y="196" width="86" height="88" rx="10" fill="var(--paper-deep)" stroke="var(--line-strong)"/>
+  <text x="318" y="244" font-family="Consolas,monospace" font-size="12" fill="var(--muted)">事件总线</text>
+  <g font-family="Consolas,monospace" font-size="12">
+    <g><rect x="412" y="60" width="238" height="112" rx="12" fill="var(--paper-deep)" stroke="var(--line-strong)"/><text x="428" y="86" fill="var(--ink-soft)">① 运行状态</text><text x="428" y="110" fill="var(--green)" font-size="15" font-weight="700">RUNNING · 5 态</text><text x="428" y="134" fill="var(--faint)" font-size="11">pending→running→done/failed</text><text x="428" y="152" fill="var(--faint)" font-size="11">max_steps = 8</text><path d="M386 200 H412" stroke="var(--steel)" stroke-width="2" marker-end="url(#ar)"/></g>
+    <g><rect x="412" y="188" width="238" height="112" rx="12" fill="var(--paper-deep)" stroke="var(--orange)" stroke-opacity=".6"/><text x="428" y="214" fill="var(--ink-soft)">② 审批闸</text><text x="428" y="238" fill="var(--orange)" font-size="15" font-weight="700">PENDING · 120s</text><text x="428" y="262" fill="var(--faint)" font-size="11">8 态 · CAS 认领 · 过期不复活</text><text x="428" y="280" fill="var(--faint)" font-size="11">重复同一决策 = 读（200）</text><path d="M386 240 H412" stroke="var(--orange)" stroke-width="2" marker-end="url(#arA)"/></g>
+    <g><rect x="412" y="316" width="238" height="112" rx="12" fill="var(--paper-deep)" stroke="var(--line-strong)"/><text x="428" y="342" fill="var(--ink-soft)">③ 工具在飞</text><text x="428" y="366" fill="var(--steel)" font-size="15" font-weight="700">tool_call/result 对</text><text x="428" y="390" fill="var(--faint)" font-size="11">CALL_TIMEOUT = 90s</text><path d="M386 340 H412" stroke="var(--steel)" stroke-width="2" marker-end="url(#ar)"/></g>
+    <g><rect x="672" y="60" width="238" height="112" rx="12" fill="var(--paper-deep)" stroke="var(--line-strong)"/><text x="688" y="86" fill="var(--ink-soft)">④ 黑匣子</text><text x="688" y="110" fill="var(--steel)" font-size="15" font-weight="700">11 阶段 trace</text><text x="688" y="134" fill="var(--faint)" font-size="11">脱敏 · 合并 · 限长 40 条</text><path d="M646 200 H672" stroke="var(--steel)" stroke-width="2" marker-end="url(#ar)"/></g>
+    <g><rect x="672" y="188" width="238" height="112" rx="12" fill="var(--paper-deep)" stroke="var(--red)" stroke-opacity=".55"/><text x="688" y="214" fill="var(--ink-soft)">⑤ 警戒线</text><text x="688" y="238" fill="var(--red)" font-size="15" font-weight="700">首 token 90s 看门狗</text><text x="688" y="262" fill="var(--faint)" font-size="11">超时 → 降级链接手 · 中性提示</text><path d="M646 240 H672" stroke="var(--red)" stroke-width="2" marker-end="url(#ar)"/></g>
+    <g><rect x="672" y="316" width="238" height="112" rx="12" fill="var(--paper-deep)" stroke="var(--line-strong)"/><text x="688" y="342" fill="var(--ink-soft)">⑥ 聊天流</text><text x="688" y="366" fill="var(--steel)" font-size="15" font-weight="700">delta · 思考折叠行</text><text x="688" y="390" fill="var(--faint)" font-size="11">给读信的人，不承担仪表职责</text><path d="M646 340 H672" stroke="var(--steel)" stroke-width="2" marker-end="url(#ar)"/></g>
+  </g>
+</svg>
+<div class="fig-cap">FIG. A · 九种事件从内核出发，一条总线分送到五块仪表——聊天流只是其中一块，且最不承担观测职责</div>
+</div>
+<div class="fig">
+<img src="assets/hero-loop.gif" alt="驾驶舱仪表循环动画：指针摆动、事件灯逐颗点亮" loading="lazy" style="width:100%;border-radius:12px;display:block">
+<div class="fig-cap">FIG. B · 装饰位：主仪表板指针归位、事件灯逐颗亮起 · 循环动画（gpt-image-2.5-sunburst · 14 帧）</div>
+</div>
+<div class="note"><b>本片提要：</b>聊天窗口是给「读信的人」的，驾驶舱是给「看仪表的人」的——Agent 干活时，两者缺一不可。事件流是一切的来源：后端打点出九种事件，前端把它们排成五块仪表；审批不是聊天里的一句「可以吗」，是一台 8 态状态机加 120 秒过期支票；日志不是越长越好，黑匣子有三条纪律：脱敏、合并、限长；连接死而服务在的故障，交给只看第一帧的看门狗。全部解剖照着一台 <b>179 个测试</b>、前后端一万多行的本机工作台逐行核对，旁证三台你仓库里的真驾驶舱。</div>
+<h2 style="font-size:22px;letter-spacing:2px;margin:40px 0 4px">CONTENTS · 六段航程</h2>
+<div class="pack" style="display:block">
+  <p>01 盲飞 —— 聊天窗口不是驾驶舱</p>
+  <p>02 事件流 —— 仪表的数据从哪来</p>
+  <p>03 五块仪表 —— 状态机怎么排成面板</p>
+  <p>04 手不离杆 —— 审批闸门与 120 秒支票</p>
+  <p>05 黑匣子 —— 飞行记录仪的三条纪律</p>
+  <p>06 警戒线 —— 看门狗、降级与费用闸门</p>
+  <p>附 —— 起飞前检查单：如果只带走十二句</p>
+</div>
+<div class="meridian">— CHAPTER 01 —</div>
+<div class="chapter" id="ch1">
+<div class="ch-head"><span class="ch-no">01 · CHAPTER</span><h2>盲飞：聊天窗口不是驾驶舱</h2></div>
+<p class="ch-lead">仪表的第一职责不是好看，是让你在关键三秒里知道该不该拉杆。Agent 没有驾驶舱的干活方式叫盲飞——而大多数人对 Agent 的全部观测，就是聊天窗口里那句「好的，我来处理」。</p>
+<h3><span class="h3n">⚓ 1.1</span>两种界面，两种读者</h3>
+<p>本篇标本是一台本机自研的 Agent 工作台：前端 <b>7,811 行</b> React、Django 后端带 <b>179 个测试</b>，底下接 hermes 网关。它的聊天页是一个 966 行的 ChatView，但真正让操作者睡得着的，是聊天流之外的另外三块：193 行的<strong>工具审批面板</strong>、侧栏的<strong>「运行状态」rail</strong>、以及一份 359 行的<strong>运行历史详情页</strong>。聊天流把过程<strong>转述</strong>成叙事——「我找到了三个文件，正在写入」；驾驶舱把过程<strong>摆</strong>成事实——一个 status 徽标、一个带倒计时的审批卡、一条逐条追加的事件日志。叙事可以说谎（模型会把「失败」说成「稍微遇到了一点阻力」），事实必须打点。</p>
+<p>系列对照：VOL.12《住进机房的 Agent》让 Agent 盯服务器，这一篇反过来——<b>人盯 Agent</b>。方向掉了个头，工程上的分水岭却是一样的：事实由确定性代码决定，叙事只负责说话。</p>
+<div class="note"><b>把聊天窗口当驾驶舱，是这类事故的统一开头</b>：你看到「好的，我来处理」，十分钟后看到一段像模像样的总结——至于中间它调了几次工具、有没有拿到写文件的许可、token 烧了多少，聊天流一个字没提。它不是坏，它压根没被设计来回答这些问题。</div>
+<p><b>经典追问：为什么不把状态直接混进聊天流里说，非要单独做面板？</b>三个理由。①<strong>读者不同</strong>——聊天流是给用户读的散文，会被模型的措辞润色；仪表是给操作者和代码读的数据，一个布尔一个数字，没有修辞空间。②<strong>生命周期不同</strong>——聊天气泡是「说过就沉下去」的，第二条消息很快把第一条顶出视野；状态必须<strong>可轮询、可刷新</strong>：审批面板每 3 秒拉一次最新状态，永远显示当前事实，而不是三分钟前的事实。③<strong>消费方式不同</strong>——仪表的下游是代码：审批面板轮询的是 JSON（8 个字段，一个 status 枚举），不是一段需要再解析一遍的中文。所以分工很清楚：<b>聊天流可以「讲」，驾驶舱必须「摆」</b>。</p>
+<div class="fig"><img src="assets/ch1-blind.webp" alt="盲飞与亮起仪表的座舱对比" loading="lazy" style="width:100%;border-radius:12px;display:block">
+<div class="fig-cap">FIG. C · 盲飞对照：左边没有仪表的座舱，右边同一座舱亮起读数——差别不是舒适度，是能不能在关键三秒做决定（gpt-image-2 生成）</div>
+</div>
+<div class="demo" id="d1">
+  <div class="demo-head">
+    <span class="demo-tag">互动 01</span>
+    <span class="demo-title">盲飞对照台 · 同一条事件流，两种视角</span>
+    <span class="demo-hint">点「播放 run」→ 左聊天右仪表，各自能看见什么</span>
+  </div>
+  <div class="demo-body">
+    <div class="btn-row">
+      <button class="btn primary" id="d1-play" onclick="d1.play()">播放 run</button>
+      <button class="btn" id="d1-step" onclick="d1.step()">单步 ▸</button>
+      <button class="btn ghost" onclick="d1.reset()">重来</button>
+      <span class="mono-note" style="font-family:var(--mono);font-size:11.5px;color:var(--muted)">任务：把 notes/ 整理成周报 · 含一次写入审批</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px" id="d1-grid">
+      <div style="border:1.5px solid var(--line-strong);border-radius:12px;overflow:hidden">
+        <div style="padding:8px 14px;background:var(--paper-deep);font-family:var(--mono);font-size:11px;letter-spacing:1px;color:var(--muted)">聊天窗口 · 读信视角</div>
+        <div id="d1-chat" style="padding:12px 14px;min-height:238px;display:flex;flex-direction:column;gap:9px;font-size:14px">
+          <div style="color:var(--faint);font-size:13px">—— 还没有消息 ——</div>
+        </div>
+      </div>
+      <div style="border:1.5px solid var(--line-strong);border-radius:12px;overflow:hidden">
+        <div style="padding:8px 14px;background:var(--paper-deep);font-family:var(--mono);font-size:11px;letter-spacing:1px;color:var(--muted)">驾驶舱 · 仪表视角</div>
+        <div style="padding:12px 14px;min-height:238px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="d1-gauges">
+            <div class="rd">运行状态 <b id="d1-run">IDLE</b></div>
+            <div class="rd">工具在飞 <b id="d1-tool">—</b></div>
+            <div class="rd">审批闸 <b id="d1-gate">—</b></div>
+            <div class="rd">token <b id="d1-tok">0</b></div>
+          </div>
+          <div id="d1-log" class="evt-log" style="margin-top:10px"></div>
+        </div>
+      </div>
+    </div>
+    <div class="readout">
+      <div class="rd">已派发事件 <b id="d1-n">0 / 10</b></div>
+      <div class="rd">聊天流可见 <b id="d1-see-c">2 条（首尾）</b></div>
+      <div class="rd">仪表可见 <b id="d1-see-d">10 条</b></div>
+      <div class="rd">审批卡可点 <b id="d1-gatebtn" class="badc">看不到</b></div>
+    </div>
+  </div>
+  <div class="demo-foot">确定性模拟：事件脚本 10 行 = 九种线事件 + 一次人审决策，固定序列、可重放（时间戳为该次真实口径的相对毫秒），无随机、可重放。看的最少的是聊天流——首尾两条气泡；看得最多的是仪表——每条事件都点亮一块面板；审批闸只在仪表视角点亮成 PENDING 灯，聊天视角根本没有这张卡可点。</div>
+</div>
+</div>
+<div class="meridian">— CHAPTER 02 —</div>
+<div class="chapter" id="ch2">
+<div class="ch-head"><span class="ch-no">02 · CHAPTER</span><h2>事件流：仪表的数据从哪来</h2></div>
+<p class="ch-lead">五块仪表共用同一根血管：一条由后端打点、单向流向前端的事件流。仪表上每一格读数、每一盏灯，都是这条流上某个事件的投影。</p>
+<h3><span class="h3n">⚓ 2.1</span>九种事件，一份清单</h3>
+<p>标本的线协议一共九种事件，前端分发器（<code>api/projects.js</code> L115–124）逐个 <code>if</code> 认领：<code>status</code>（链路元信息：网关、会话、模式、阶段）、<code>thought</code> 与 <code>thought_delta</code>（思考整段与增量）、<code>tool_call</code> / <code>tool_result</code>（工具一对）、<code>tool_approval</code>（审批请求）、<code>delta</code>（正文增量）、<code>done</code> 与 <code>error</code>（收尾两态）。其中审批事件的 payload 长这样（原样结构）：</p>
+<div class="term">
+<div class="term-head"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="tt">on_event("tool_approval", payload)</span></div>
+<pre>{ <span class="k">"id"</span>: <span class="s">"9f14c0…"</span>,
+  <span class="k">"conversation_id"</span>: <span class="s">"2043"</span>, <span class="k">"run_id"</span>: <span class="s">"881"</span>,
+  <span class="k">"tool_name"</span>: <span class="s">"write_workspace_file"</span>,
+  <span class="k">"arguments"</span>: { <span class="k">"path"</span>: <span class="s">"notes/weekly.md"</span> },
+  <span class="k">"status"</span>: <span class="s">"pending"</span>,
+  <span class="k">"expires_at"</span>: <span class="s">"2026-09-19T14:07:31.482Z"</span> }</pre>
+</div>
+<p>八个字段，最重要的一个是最后那个：<code>expires_at</code>。它把「审批」从一个礼貌用语变成了一个<strong>有截止时间的状态</strong>——这张支票 120 秒后自动作废，第四章专门算这笔账。</p>
+<h3><span class="h3n">⚓ 2.2</span>SSE 是捷径，轮询是事实源</h3>
+<p>事件怎么到前端？两条通道。第一条是推送：流式响应里捎带，事件一发生就到。第二条是轮询：审批面板 <code>refetchInterval: 3000</code>（3 秒）、文件写入记录 <code>refetchInterval: 5000</code>（5 秒）、本地时钟每秒走一格驱动倒计时。推送图快，轮询图<strong>稳</strong>——推送断线就丢，轮询每次都从数据库拿<strong>当前事实</strong>。而且后端在每次轮询查询里顺手做了一件重要的事：<code>reconcile()</code> 把已经失效的行批量修正——运行结束的活跃审批改成 cancelled、被取消的改成 cancelled、过了 <code>expires_at</code> 的改成 expired。<b>轮询不只是拿数据，还是一次修复机会</b>；SSE 断了的三秒里，事实靠它兜底。</p>
+<p><b>经典追问：为什么有了 SSE 推送，还要每 3 秒轮询一次？</b>因为推送和事实源是两种东西。推送的语义是「事件发生时尽量告诉你」，它的失败模式全是静默的：断线、代理超时、标签页休眠，丢了你都不知道丢。而审批这种「人要据此做决定」的数据，宁可见了旧数据也不能见假数据——轮询每次都从库里重取，还顺路跑一遍 reconcile 修状态。VOL.08 拆过三条信号线怎么把数据运过来，这一篇补的是下一句：<b>运到之后，事实以库里的状态为准，推送只是让仪表转得更跟手的减速轮</b>。</p>
+<div class="fig"><img src="assets/ch2-stream.webp" alt="事件流传送带进驾驶舱" loading="lazy" style="width:100%;border-radius:12px;display:block">
+<div class="fig-cap">FIG. D · 事件流总装线：事件胶囊从机房一路驶进驾驶舱，分送到每块仪表的进线口（gpt-image-2.5 生成）</div>
+</div>
+<div class="demo" id="d2">
+  <div class="demo-head">
+    <span class="demo-tag">互动 02</span>
+    <span class="demo-title">事件流总装台 · 九种事件喂进五块仪表</span>
+    <span class="demo-hint">点「下发事件」逐条走 · 看每条事件点亮哪块面板</span>
+  </div>
+  <div class="demo-body">
+    <div class="btn-row">
+      <button class="btn primary" id="d2-next" onclick="d2.next()">下发事件 ▸</button>
+      <button class="btn" id="d2-auto" onclick="d2.auto()">自动播放</button>
+      <button class="btn ghost" onclick="d2.reset()">重来</button>
+    </div>
+    <div id="d2-grid" style="display:grid;grid-template-columns:1.1fr 1fr;gap:14px;margin-top:14px">
+      <div style="border:1.5px solid var(--line-strong);border-radius:12px;overflow:hidden">
+        <div style="padding:8px 14px;background:var(--paper-deep);font-family:var(--mono);font-size:11px;letter-spacing:1px;color:var(--muted)">事件流 · SSE bus</div>
+        <div id="d2-log" class="evt-log" style="padding:10px 12px;min-height:250px"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="rd">① 运行状态 <b id="d2-run">IDLE</b></div>
+          <div class="rd">② 审批闸 <b id="d2-gate">—</b></div>
+          <div class="rd">③ 工具在飞 <b id="d2-tool">—</b></div>
+          <div class="rd">④ 正文增量 <b id="d2-delta">0 字</b></div>
+        </div>
+        <div class="term" style="margin:0">
+          <div class="term-head"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="tt">最后一条事件 · 原样 payload</span></div>
+          <pre id="d2-payload">{ "event": null }</pre>
+        </div>
+        <div class="rd" style="font-size:11.5px">⑤ token 表 <b id="d2-tok">in 0 / out 0 / cache 0</b></div>
+      </div>
+    </div>
+    <div class="readout">
+      <div class="rd">已下发 <b id="d2-n">0 / 10</b></div>
+      <div class="rd">点亮仪表数 <b id="d2-lit">0 / 5</b></div>
+      <div class="rd">推送通道 <b id="d2-sse" class="okc">SSE 在线</b></div>
+    </div>
+  </div>
+  <div class="demo-foot">确定性模拟：事件脚本与互动 01 完全同一条（同一次 run 的 10 条事件），payload 为原样结构精简（思考正文截断为一句）。值得看的点：tool_approval 一到，审批闸灯亮起且带着 expires_at——此后轮询每 3 秒拉一次库（演示里 SSE 在线徽标会补一句「+ 3s 轮询」）；done 一到，token 表才第一次有数——用量在收尾事件里，不在中途。</div>
+</div>
+
+</div>
+<div class="meridian">— CHAPTER 03 —</div>
+<div class="chapter" id="ch3">
+<div class="ch-head"><span class="ch-no">03 · CHAPTER</span><h2>五块仪表：状态机怎么排成面板</h2></div>
+<p class="ch-lead">仪表的本质是状态的投影。状态枚举少一个，就有一种事故不可见；标签含糊一个，操作者就多一次误读。这一章把标本的状态机摊开数一数。</p>
+<h3><span class="h3n">⚓ 3.1</span>八态审批机：每个多出来的状态都对应一类事故</h3>
+<p>标本里最核心的一台状态机长这样（<code>apps/tools/models.py</code> L63 原样）：一条审批记录从生到死共<b>八态</b>——<code>pending / approved / running / succeeded / failed / denied / expired / cancelled</code>。注释只有一句：「One immutable approval request; only the originating worker may claim it.」（一条不可变的审批请求；只有发起它的那个工作线程能认领。）模型上还有一台五态的运行机 <code>pending / running / done / failed / cancelled</code>（<code>max_steps</code> 默认 8，步数计数器 <code>step_count</code> 随行）。</p>
+<div class="tbl-wrap"><table class="tbl">
+<tr><th>状态</th><th>谁触发</th><th>意味着什么</th><th>面板标签（原样）</th></tr>
+<tr><td class="k">pending</td><td>内核创建审批单</td><td>等 human，倒计时 120s</td><td>等待审批</td></tr>
+<tr><td class="k">approved</td><td>人点了「允许」（CAS 落库）</td><td>批了，但机器还没拿走</td><td>已批准 · 等待执行</td></tr>
+<tr><td class="k">running</td><td>工作线程 CAS 认领成功</td><td>正在真执行</td><td>执行中</td></tr>
+<tr><td class="k">succeeded / failed</td><td>handler 返回 ok 与否</td><td>终态，带 result 落库</td><td>执行成功 / 执行失败</td></tr>
+<tr><td class="k">denied</td><td>人点了「拒绝」</td><td>终态，error=「用户拒绝了工具执行。」</td><td>已拒绝</td></tr>
+<tr><td class="k">expired</td><td>reconcile 扫到过期</td><td>终态，error=「审批已过期。」</td><td>已过期</td></tr>
+<tr><td class="k">cancelled</td><td>reconcile 扫到运行结束/取消</td><td>终态，error=「运行已取消。」</td><td>已取消</td></tr>
+</table></div>
+<p>对照旁证：本机另一台生成工作台的执行轨迹枚举了 <b>11 个阶段</b>（queued / preparing / requesting / waiting / retrying / downloading / saving / completed / failed / cancelled / recovered）——枚举粒度不同，原则相同：<b>面板上出现的每一个词，都必须是枚举里的一项，且带一句人话标签</b>。标本前端把八态翻成中文（<code>STATUS_LABELS</code>），并给 pending 卡上印了一句很关键的提示：「<b>批准不代表执行成功</b>」。</p>
+<p><b>经典追问：五个状态不够用吗？为什么非要八个？</b>逐个数「多出来的」：denied 和 expired 是审批的两种死法——「被拒绝」和「没人理」是两回事，合并成 failed，三个月后的你就分不清是工具失败还是人没理它。approved 单列才是精髓：「人批了」和「机器拿了」之间有一段真空，真空期会撞上三种事故——运行被取消、支票过期、同一张单被重复提交。把真空命名成状态，事故才有处可查：查到 approved 卡住 30 秒，是线程死了；查到直接从 pending 跳 running，那数据是假的。<b>每个多出来的状态，都是一类真实事故的姓名</b>。</p>
+<div class="fig"><img src="assets/ch3-lamps.webp" alt="八盏状态信号灯" loading="lazy" style="width:100%;border-radius:12px;display:block">
+<div class="fig-cap">FIG. E · 八态排成一排信号灯：两盏琥珀两盏红——每一盏背后是一类有名字的事故（gpt-image-2.5-sunburst 生成）</div>
+</div>
+</div>
+<div class="demo" id="d3">
+  <div class="demo-head">
+    <span class="demo-tag">互动 03</span>
+    <span class="demo-title">状态机探照灯 · 八态走一遍，非法转移给理由</span>
+    <span class="demo-hint">点事件按钮走转移 · 非法操作会被状态机拒绝</span>
+  </div>
+  <div class="demo-body">
+    <div style="display:flex;gap:6px;flex-wrap:wrap" id="d3-lamps"></div>
+    <div class="btn-row">
+      <button class="btn primary" onclick="d3.fire('create')">创建审批单</button>
+      <button class="btn" onclick="d3.fire('allow')">人：允许</button>
+      <button class="btn" onclick="d3.fire('claim')">线程：认领</button>
+      <button class="btn" onclick="d3.fire('finish')">执行返回 ok</button>
+      <button class="btn" onclick="d3.fire('deny')">人：拒绝</button>
+      <button class="btn" onclick="d3.fire('expire')">reconcile：过期</button>
+      <button class="btn" onclick="d3.fire('cancel')">运行结束</button>
+      <button class="btn ghost" onclick="d3.reset()">重来</button>
+    </div>
+    <div class="term" style="margin-top:12px">
+      <div class="term-head"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="tt">状态机 · 转移日志</span></div>
+      <pre id="d3-term"># 点「创建审批单」开始 —— 非法转移会被拒绝并给出原因</pre>
+    </div>
+    <div class="readout">
+      <div class="rd">当前状态 <b id="d3-state">∅（无审批单）</b></div>
+      <div class="rd">到达终态 <b id="d3-final">—</b></div>
+      <div class="rd">被拒操作 <b id="d3-rej">0 次</b></div>
+    </div>
+  </div>
+  <div class="demo-foot">确定性模拟：转移表照抄后端（pending→approved/denied/expired/cancelled；approved→running/expired/cancelled；running→succeeded/failed/cancelled）。值得踩的坑：① 不创建直接点「允许」——被拒；② running 之后点「允许」——被拒，因为重复决策只对 pending 有效；③ 认领后再点「拒绝」——被拒，工具已在飞。八态穷举、终态不可复活，与源码一致。</div>
+</div>
+
+<div class="meridian">— CHAPTER 04 —</div>
+<div class="chapter" id="ch4">
+<div class="ch-head"><span class="ch-no">04 · CHAPTER</span><h2>手不离杆：审批闸门与 120 秒支票</h2></div>
+<p class="ch-lead">驾驶舱和仪表盘的区别在于：仪表盘只读，驾驶舱带操纵杆。审批就是那根杆——但「批」这个动作背后的工程，比一个按钮多得多。</p>
+<h3><span class="h3n">⚓ 4.1</span>停等协议：线程停在闸门前</h3>
+<p>执行线程走到需要审批的工具时，做的事朴素到只有一行（<code>tool_approval.py</code>）：创建一条 <code>pending</code> 审批单，<code>expires_at = now + 120s</code>，向事件流广播一条 <code>tool_approval</code>，然后进入 <code>while</code> 循环——每 <code>POLL_INTERVAL = 0.1s</code> 醒一次，做三件事：看运行是否被取消、跑一遍 reconcile、检查是否过了 120 秒期限。人批了之后也不是直接跑，而是一次<strong>CAS 认领</strong>（源码注释原样）：</p>
+<div class="term">
+<div class="term-head"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="tt">execute_approved() · 认领与执行</span></div>
+<pre><span class="c"># Compare-and-swap: no transaction/lock is held while waiting or executing.</span>
+claimed = rows.filter(status=<span class="s">"approved"</span>, decision=<span class="s">"allow"</span>,
+    expires_at__gt=timezone.now(), <span class="c"># 支票还在有效期内</span>
+    run__status=<span class="s">"running"</span>,           <span class="c"># 运行还活着</span>
+    conversation__cancel_requested=<span class="k">False</span>,  <span class="c"># 没人喊停</span>
+).update(status=<span class="s">"running"</span>)
+<span class="k">if not</span> claimed: <span class="k">continue</span>   <span class="c"># 世界变了，这轮不认领，下轮再说</span>
+execution.refresh_from_db()  <span class="c"># execute only the persisted, approved arguments</span></pre>
+</div>
+<p>四条守卫写在同一个 <code>filter</code> 里，原子地完成「检查并拿走」：支票有效期、运行存活、没有取消请求、状态恰好是 approved——任何一条不满足，认领失败，循环继续。旁证是本机另一台的更原始写法：剪辑工作台的蓝图执行器直接停在 <code>awaiting_gate</code>，一行 <code>self.event.wait()</code> 把线程挂起，等人审端点改库后 <code>event.clear()</code> + 重取库内最新状态再继续——同一种停等，只是把轮询换成了事件唤醒。它的注释还多交代了一层驾驶舱责任：「人审通过后新开一段，<b>超支只追这一段的账</b>」——费用闸门以门禁为段起点重新计时。</p>
+<div class="fig"><img src="assets/ch4-gate.webp" alt="审批闸门与票据" loading="lazy" style="width:100%;border-radius:12px;display:block">
+<div class="fig-cap">FIG. F · 审批闸门：拉杆按下才吐票，票上盖章——盖章是「批了」，兑现还要等闸门后的线程认领（gpt-image-2.5-sunburst 生成）</div>
+</div>
+<h3><span class="h3n">⚓ 4.2</span>决策端：重复决策是读，不是写</h3>
+<p>人这一侧同样被工程化。点「允许」的请求带同样的 CAS 守卫（<code>approval_views.py</code> L78）：<code>status="pending", decision="", expires_at__gt=now, run__status="running"</code>——只有还在等待、还没表过态、支票没过期、运行还活着的单子才会被改。改完之后的判定只有一行却值得抄在墙上（注释原样）：</p>
+<div class="term">
+<div class="term-head"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="tt">tool_execution_decision() · 幂等判定</span></div>
+<pre><span class="c"># A repeated identical decision is a read, never another execution.</span>
+<span class="c"># Terminal expiry/cancellation cannot be resurrected even by an earlier allow.</span>
+same = execution.decision == decision <span class="k">and</span> execution.status <span class="k">not in</span> (<span class="s">"expired"</span>, <span class="s">"cancelled"</span>)
+<span class="k">return</span> Response(..., status=<span class="s">200</span> <span class="k">if</span> changed <span class="k">or</span> same <span class="k">else</span> <span class="s">409</span>)</pre>
+</div>
+<p>前端配合了三道保险：点过的单子进 <code>locks</code> 集合防双击、决定提交成功后 <code>cancelQueries</code> 取消在途轮询防止旧 pending 按钮回填、本地倒计时到期就把按钮禁用交给服务端定夺。还有一台配套的回滚机：文件写入记录三态 <code>applied / rejected / rolled_back</code>，卡片上用 difflib 生成 unified diff 供人核——「<b>批准前看 diff，批准后可回滚</b>」，回滚非 applied 状态会得到一句 409：「仅已应用的写入可回滚（当前：rolled_back）。」</p>
+<p><b>经典追问：批准为什么要 120 秒过期？永不失效不行吗？</b>因为你批准的从来不是一条命令，而是<strong>某个会话状态里的一段意图</strong>——「在这个运行里、对这份参数、现在执行」。支票兑现之前，世界会变：运行可能被取消，参数对应的上下文可能已经滚过一轮，你自己可能早就切走了。永不失效的批准就是把三个月前的决定永久绑在未来，而当时的那次点头早就失去了前提。过期时间不是不信任人，是<strong>给「批了但没执行」这类僵尸状态一个体面的葬礼</strong>——reconcile 扫到它，标 expired、写 error，下不为例。所以标本的前端在过期卡上只显示一个动作：刷新，让服务端状态说话。</p>
+<div class="demo" id="d4">
+  <div class="demo-head">
+    <span class="demo-tag">互动 04</span>
+    <span class="demo-title">审批闸门 · 一张 120 秒的支票怎么兑现</span>
+    <span class="demo-hint">时钟 12 倍速 · 试「重复提交」与「过期后批准」</span>
+  </div>
+  <div class="demo-body">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+      <span id="d4-lamp" style="font-family:var(--mono);font-size:12.5px;font-weight:700;border:1.5px solid var(--line-strong);border-radius:999px;padding:5px 16px;background:var(--paper-deep);color:var(--muted)">∅ 无审批单</span>
+      <span style="font-family:var(--mono);font-size:12px;color:var(--muted)">剩余 <b id="d4-ttl">—</b></span>
+      <span style="font-family:var(--mono);font-size:12px;color:var(--muted)">线程 <b id="d4-worker">空闲 · 0.1s/轮</b></span>
+    </div>
+    <div class="btn-row">
+      <button class="btn primary" id="d4-create" onclick="d4.fire('create')">创建审批单</button>
+      <button class="btn" id="d4-allow" onclick="d4.fire('allow')">允许（allow）</button>
+      <button class="btn" id="d4-deny" onclick="d4.fire('deny')">拒绝（deny）</button>
+      <button class="btn" id="d4-repeat" onclick="d4.fire('repeat')">重复上一次决策</button>
+      <button class="btn" id="d4-skip" onclick="d4.fire('skip')">快进 +30s</button>
+      <button class="btn ghost" onclick="d4.reset()">重来</button>
+    </div>
+    <div class="term" style="margin-top:12px">
+      <div class="term-head"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="tt">POST /api/tools/executions/{id}/decision · 响应码实录</span></div>
+      <pre id="d4-term"># 创建一张单，先随便玩，再看两个经典翻车：重复提交、过期复活</pre>
+    </div>
+    <div class="readout">
+      <div class="rd">当前状态 <b id="d4-state">∅</b></div>
+      <div class="rd">上次响应 <b id="d4-code">—</b></div>
+      <div class="rd">认领次数 <b id="d4-claims">0</b></div>
+      <div class="rd">reconcile 修正 <b id="d4-rec">0 次</b></div>
+    </div>
+  </div>
+  <div class="demo-foot">确定性模拟：时钟 1 真秒 = 12 模拟秒（即 120s 支票 10 真秒烧完）；线程每 0.1s 醒一次的轮询压缩到每秒一次 reconcile。两条经典翻车：① 批准后连点「重复上一次决策」→ 200（注释原话：重复同一决策是读，不是又一次执行）；② 批准后不认领、快进过 120s → expired，再点「允许」→ 409——终态不可复活，连更早的 allow 也不行。200/409 的判定与源码同一行逻辑。</div>
+</div>
+</div>
+<div class="meridian">— CHAPTER 05 —</div>
+<div class="chapter" id="ch5">
+<div class="ch-head"><span class="ch-no">05 · CHAPTER</span><h2>黑匣子：飞行记录仪的三条纪律</h2></div>
+<p class="ch-lead">事故总会发生。黑匣子的价值不在事故前，而在事故后——读者是三个月后的你自己，那时的你已经忘了现场，只剩记录。</p>
+<h3><span class="h3n">⚓ 5.1</span>时间线：让每一步自己报成本</h3>
+<p>本机渠道探测 Agent 的日志器只有 20 行，却是全仓库被引用最多的部件之一（<code>app/engine.py</code> L116 原样）：</p>
+<div class="term">
+<div class="term-head"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="tt">class Timeline · 时间线日志</span></div>
+<pre><span class="k">def</span> add(<span class="k">self</span>, msg): <span class="k">self</span>.items.append((time.perf_counter() - <span class="k">self</span>.t0, msg))
+<span class="k">def</span> render(<span class="k">self</span>):
+    <span class="k">return</span> <span class="s">"\n"</span>.join(<span class="s">f"[{t * 1000:8.0f}ms] {m}"</span> <span class="k">for</span> t, m <span class="k">in</span> <span class="k">self</span>.items)
+
+<span class="c"># 渲染出来长这样——相对时间戳让每一步的成本自己开口：</span>
+[     <span class="p">218ms</span>] HTTP 200
+[     <span class="p">467ms</span>] TTFB 249ms · stream event 1</pre>
+</div>
+<p>相对时间戳是它全部的魔法：不做绝对时间（要对表），只记「距起跑多少毫秒」，八位右对齐——成本一眼可比。载荷另设 <code>PAYLOAD_KEEP = 1600</code> 截断，超长只留前段。这套格式后来成了它的前端徽标：每个渠道状态点都 <code>data-act="show-log"</code>，点开就能翻最近 80 条——<b>可点击的徽标背后必须藏着时间线，这是「日志不是黑盒」这条硬需求的最小实现</b>。</p>
+<div class="fig"><img src="assets/ch5-recorder.webp" alt="黑匣子与纸带" loading="lazy" style="width:100%;border-radius:12px;display:block">
+<div class="fig-cap">FIG. G · 飞行记录仪：橙色匣子和拖出的纸带——纸带上的每一步都带相对时间戳，异常时刻的密度才是它全部的价值（gpt-image-2.5-sunburst 生成）</div>
+</div>
+<h3><span class="h3n">⚓ 5.2</span>三条纪律：脱敏、合并、限长</h3>
+<p>另一台生成工作台的 <code>execution-trace.js</code>（181 行）把记录仪的纪律写得更全。其一<b>脱敏</b>：<code>redactTraceText</code> 在落库前把 Bearer、sk- 开头的密钥、<code>key=value</code> 形态的凭据全部换成 <code>[已隐藏]</code>，URL 只留 origin + path——收集面还更细：<code>traceSecrets()</code> 把 apiKey、cookie、自定义头、连 URL 里带的密码都收进密钥清单，按长度倒序替换，防止「先替换短密钥把长密钥截断」的漏洞。其二<b>合并</b>：waiting / preparing / downloading 三类同阶段更新不追加新行，只刷新当前行——2 秒轮询一次的等待期，60 行数据压成 1 行。其三<b>限长</b>：<code>TRACE_LIMIT = 40</code> 滚动窗口，永远只留最近 40 条。</p>
+<div class="note"><b>三条纪律各挡一类事故</b>：不脱敏，记录仪就是密码泄露源——日志总会被导出、贴群、进工单；不合并，记录仪被轮询淹没——每 2 秒一条「仍在等待」，一晚就是 43,200 行同质噪声，真正的异常时刻反而找不到；不限长，记录仪变成磁盘刺客——黑匣子要有容量，是因为它只为「最近的坠机」服务。</div>
+<p>剪辑工作台的轨迹面板是第四个旁证：<code>GET /api/job/{id}</code> 返回 <code>steps: [{t, msg}]</code>——<b>纯追加、绝不改写</b>的历史，前端按相对时间 mm:ss 渲染。README 里它有个自带重量的名字：「任务轨迹面板（反黑盒红线）」。这三台机器没商量过，却达成了同一份共识：驾驶舱给当下，黑匣子给事后；黑匣子的写入者只管如实追加，永不为好看而改写历史。</p>
+<p><b>经典追问：记录仪为什么要合并同阶段，而不是老老实实全量记录？</b>因为记录仪的价值密度分布极不均匀：正常等待期的两百次「仍在 waiting」是零信息重复，异常时刻那一毫秒的三条连续事件才是全部分量。全量记录有两个真实代价：检索时，异常事件被 43,200 行噪声顶出视野（人翻日志、grep 分页都一样）；存储时，「 forever 保留一切」的美好愿望在磁盘面前从不成立。合并的正确姿势是把两个概念分开记账——<b>状态进时间轴，更新次数进计数器</b>：那一行 waiting 旁边标注「×214」，信息一点没丢，噪声少了一百多倍。</p>
+<div class="demo" id="d5">
+  <div class="demo-head">
+    <span class="demo-tag">互动 05</span>
+    <span class="demo-title">黑匣子重放台 · 拖滑块回到任意时刻</span>
+    <span class="demo-hint">拖动滑块逐帧回放 · 切「脱敏」对照看</span>
+  </div>
+  <div class="demo-body">
+    <div class="btn-row" style="align-items:center">
+      <input type="range" id="d5-slider" min="0" max="14" value="0" style="flex:1;accent-color:var(--orange)" oninput="d5.scrub(this.value)">
+      <span style="font-family:var(--mono);font-size:12px;color:var(--muted)">事件 <b id="d5-idx">0 / 14</b></span>
+      <button class="btn" id="d5-redact" onclick="d5.toggleRedact()">脱敏：开</button>
+      <button class="btn ghost" onclick="d5.reset()">回到起点</button>
+    </div>
+    <div id="d5-body-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px">
+      <div class="term" style="margin:0">
+        <div class="term-head"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="tt">trace · 事件纸带（只追加）</span></div>
+        <pre id="d5-tape"></pre>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="rd">重构·运行状态 <b id="d5-run">∅</b></div>
+          <div class="rd">重构·审批 <b id="d5-gate">∅</b></div>
+          <div class="rd">重构·工具 <b id="d5-tool">∅</b></div>
+          <div class="rd">合并省略 <b id="d5-merged">0 行</b></div>
+        </div>
+        <div class="term" style="margin:0">
+          <div class="term-head"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="tt">该时刻的最后一条记录（原样）</span></div>
+          <pre id="d5-frame" style="min-height:92px">— 拖动滑块 —</pre>
+        </div>
+      </div>
+    </div>
+    <div class="readout">
+      <div class="rd">纸带总行数 <b id="d5-total">14</b></div>
+      <div class="rd">若未合并将是 <b id="d5-raw" class="hot">33 行</b></div>
+      <div class="rd">密钥出现次数 <b id="d5-secrets">开脱敏后 0</b></div>
+    </div>
+  </div>
+  <div class="demo-foot">确定性模拟：纸带 14 行来自互动 01 同一条 run 加一段上游重试（attempt 1 挂起 → 看门狗中止 → attempt 2 成功），waiting 更新 ×19 合并成 1 行并标 ×19；33 行为未合并的理论行数。脱敏开关对照 Bearer → Bearer ab***（源码 _mask 口径：只留前 6 字符）与 sk-… → [已隐藏]。重放 = 事件溯源：滑块停在 N，状态面板就是前 N 条事件折叠出的世界。</div>
+</div>
+</div>
+<div class="meridian">— CHAPTER 06 —</div>
+<div class="chapter" id="ch6">
+<div class="ch-head"><span class="ch-no">06 · CHAPTER</span><h2>警戒线：看门狗、降级与费用闸门</h2></div>
+<p class="ch-lead">前五章都是「看得见」，这一章是「拦得住」：一段只看第一帧的看门狗、一条不说狠话的降级链、一道按段记账的费用闸——三道警戒线，拦的全是同一种敌人：无声的失败。</p>
+<h3><span class="h3n">⚓ 6.1</span>首 token 看门狗：90 秒认输，换一条路</h3>
+<p>中转站最常见的故障形态不是断连，是「<b>连接建立后长时间一字节不发</b>」——TCP 三次握手都完成了，read 超时却设在 240s/600s，等它自己报错太浪费。标本的解法是一个 30 行的包装器（<code>services/stream_guard.py</code> 文件头原样）：</p>
+<div class="term">
+<div class="term-head"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="tt">stream_guard.py · 首 token 看门狗</span></div>
+<pre><span class="c">"""流式首事件看门狗：上游迟迟不吐第一个事件就中止本次尝试，交给降级链。</span>
+<span class="c">首个事件一旦到达，后续分片间隔（模型思考）交回 read 超时管。"""</span>
+item = events.get(timeout=timeout)   <span class="c"># 泵线程把源事件转进队列</span>
+<span class="k">except</span> queue.Empty:
+    <span class="k">raise</span> RuntimeError(<span class="s">"上游 {timeout:g}s 未产出首个流式事件，已中止本次尝试"</span>
+                       <span class="s">"（可用环境变量 AI_FIRST_TOKEN_TIMEOUT 调整）"</span>)</pre>
+</div>
+<p>机制是一条泵线程 + 一个队列：源迭代器在后台线程里跑，每个事件转投队列；主线程带 90 秒预算去取第一个事件（默认值 <code>AI_FIRST_TOKEN_TIMEOUT = 90</code>，settings.py L228），取不到就抛错、关闭源、把这次尝试交给降级链换下一站。妙处在那个 <code>finally</code>：包装器被 close 时会顺手 <code>close()</code> 底下的源——<b>认输也要把连接收干净，不留半开的裸流</b>。工具调用那条线同理，MCP 客户端 <code>CALL_TIMEOUT = 90</code>。</p>
+<div class="fig"><img src="assets/ch6-watchdog.webp" alt="机械犬守雷达屏" loading="lazy" style="width:100%;border-radius:12px;display:block">
+<div class="fig-cap">FIG. H · 看门狗：只盯着第一帧有没有准时出现，雷达扫过警戒弧就换路——它不看第二帧，那是思考的领地（gpt-image-2 生成）</div>
+</div>
+<h3><span class="h3n">⚓ 6.2</span>降级不说狠话</h3>
+<p>看门狗开火之后，链路切到备用渠道——此刻用户屏幕上出现什么？标本的选择写在前端注释里（ChatView 原样）：「<b>链路切换是运行时降级，不是致命错误：中性提示样式，不渲染成红色错误横幅</b>」。横幅换成一条中性 notice，带「复制诊断」按钮——诊断文本里是网关、阶段、降级原因的结构化字段，贴给运维就能查。红色留给真正的终态失败；把降级染红，等于训练用户对红色免疫。旁边还有一层保险：Agent 侧的步数上限 <code>max_steps = 8</code> 配着 <code>update_status_atomic</code>（只允许 pending/running 内转移，防竞态）——失控的循环在第 8 步被物理切断。</p>
+<h3><span class="h3n">⚓ 6.3</span>费用闸门：超支只追这一段的账</h3>
+<p>警戒线的最后一段来自剪辑工作台（IN-1 费用闸门，真实常量）：执行器每过一节点比对「本段实际消耗 vs 该段预估」，超阈值就停——<code>run_state</code> 退回 <code>draft</code>，已通过节点保留，把「预估 vs 实际」落进 <code>cost_gate</code> 字段进 UI（反黑盒）。而它在门禁通过时的记账动作很讲究（源码原样）：<code>cost_gate = {'status': 'ok', 'gate_id': gate_nid, 'segment_started_at': time.time()}</code>——<b>人审通过即新开一段，预算按段重置，超支只追这一段的账</b>。如果把整次运行当一本账，一次误判就能锁死全局；分段之后，误判的代价被隔离在段内。</p>
+<p><b>经典追问：看门狗为什么只看第一个事件，后面的间隔就不管了？</b>因为一条流的时间线其实是两段制度。第一段（连接后到首事件前）：上游可能已经死了，但它不报错也不吐字——唯一可靠的判据就是「等了多少秒还没有第一个事件」，所以用看门狗硬性限 90 秒。第二段（首事件之后）：分片间隔是模型思考的正常节奏——长思考停 40 秒完全健康，如果也用 90 秒卡间隔，正常的深思会被误杀。所以标本的注释写得毫不含糊：「首个事件一旦到达，后续分片间隔交回 read 超时管」。一把尺子量两段制度，要么误杀思考，要么放过了挂死——<b>切开管，是唯一两头都站得住的切法</b>。</p>
+<div class="demo" id="d6">
+  <div class="demo-head">
+    <span class="demo-tag">互动 06</span>
+    <span class="demo-title">看门狗 · 90 秒里发生了什么</span>
+    <span class="demo-hint">选一种上游形态 × 开关看门狗，对比两条时间线</span>
+  </div>
+  <div class="demo-body">
+    <div class="btn-row">
+      <button class="btn primary" onclick="d6.play('hang')">上游挂死（一字节不发）</button>
+      <button class="btn" onclick="d6.play('think')">正常深思（首事件停 40s）</button>
+      <label style="font-family:var(--mono);font-size:12.5px;color:var(--ink-soft);display:inline-flex;align-items:center;gap:7px;margin-left:6px">
+        <input type="checkbox" id="d6-wd" checked onchange="d6.reset()"> 看门狗 ON（90s）
+      </label>
+      <button class="btn ghost" onclick="d6.reset()">重来</button>
+    </div>
+    <div class="term" style="margin-top:12px">
+      <div class="term-head"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="tt">stream timeline · 降级链实录</span></div>
+      <pre id="d6-term"># 选一种形态按播放 —— 每行 [相对秒]，与 Timeline 同款格式</pre>
+    </div>
+    <div class="readout">
+      <div class="rd">本次尝试 <b id="d6-try">—</b></div>
+      <div class="rd">看门狗判定 <b id="d6-verdict">—</b></div>
+      <div class="rd">用户看到的 <b id="d6-ux">—</b></div>
+      <div class="rd">浪费时长 <b id="d6-waste">0s</b></div>
+    </div>
+  </div>
+  <div class="demo-foot">确定性模拟：hang 档首事件永不出现，watchdog ON → 90.0s 抛 RuntimeError、降级链换站 12s 后成功（浪费 90s）；OFF → 卡到 read 超时 240s 才认输（浪费 240s）。think 档首事件在 40s 到达，两档都成功——看门狗对正常思考零误伤。值得看的点：ON + hang 的用户提示是中性「链路已切换」，OFF + hang 的提示才是红色错误。</div>
+</div>
+</div>
+<div class="finale">
+<div class="beacon">CHECKLIST · PRE-FLIGHT</div>
+<h2>附 · 起飞前检查单：如果只带走十二句</h2>
+<p>贴在手边的那一页。每句都是前面六章的浓缩，展开版见各章。</p>
+<div class="cheat">
+  <div class="cc"><b>①</b> 聊天窗口给读信的人，驾驶舱给看仪表的人——叙事可以被润色，状态必须是打点出来的事实。</div>
+  <div class="cc"><b>②</b> 事件流是一切的来源——后端打点九种事件，每块仪表都是其中某几条的投影。</div>
+  <div class="cc"><b>③</b> SSE 是捷径，轮询是事实源——推送断了是静默的；3 秒轮询每次重取库，还顺路 reconcile 修状态。</div>
+  <div class="cc"><b>④</b> 状态必须穷举——八个状态对应八类事故，每个都配一句人话标签，含糊一个就多一次误读。</div>
+  <div class="cc"><b>⑤</b> approved ≠ running——「人批了」和「机器拿了」之间的真空是事故高发段，把它命名成状态才可观测。</div>
+  <div class="cc"><b>⑥</b> 认领用 CAS 写成一个原子 filter——支票有效期、运行存活、无取消请求、状态恰好 approved，一条不满足就拿不走。</div>
+  <div class="cc"><b>⑦</b> 审批是支票不是命令——120 秒过期不是不信任人，是给「批了但没执行」的僵尸状态一个体面葬礼。</div>
+  <div class="cc"><b>⑧</b> 重复同一决策是读不是写（200），顶牛才冲突（409）——终态不可复活，连更早的 allow 也不行。</div>
+  <div class="cc"><b>⑨</b> 黑匣子三条纪律：脱敏、合并、限长——记录仪是写给三个月后的你的，不是写给磁盘的。</div>
+  <div class="cc"><b>⑩</b> 时间线用相对时间戳——<code style="font-size:.85em">[&nbsp;&nbsp;&nbsp;218ms]</code> 让每一步的成本自己开口，成本一眼可比。</div>
+  <div class="cc"><b>⑪</b> 看门狗只看第一帧——连接死而服务在的故障，90 秒认输换路；首事件之后的间隔是思考，交回 read 超时。</div>
+  <div class="cc"><b>⑫</b> 降级不说狠话——链路切换用中性提示，红色只留给终态失败；费用按段记账，超支只追这一段。</div>
+</div>
+</div>
+<h2 style="font-size:24px;margin:34px 0 6px">收尾：一条流，六种读法</h2>
+<p>驾驶舱的全部心思可以压成一句话：<b>让同一条事件流，在六种角色面前各被读一遍</b>——聊天流把它读成叙事，面板把它读成状态，闸门把它读成一张要兑现的支票，黑匣子把它读成只追加的历史，看门狗把它读成第一帧有没有准时出现，费用闸把它读成一段一段的账。写完这篇试了试标本的六个小样，最有意思的是互动 04：把批准后的单子晾到过期再点允许，回给浏览器的是那句 409——「终态不可复活，连更早的 allow 也不行」，这条注释本来只是为了堵一个双击竞态，三个月后读起来，是一份关于「承诺有时效」的完整声明。</p>
+<div class="site-foot">
+<span>造物手记 VOL.16 · 给 Agent 装一块驾驶舱</span>
+<span>INSTRUMENT PANEL / 2026.11 / 六章 · 六段互动 · 零依赖</span>
+<span>交互确定性模拟 · 标本 hermes-agent-workbench · StarrySea1412</span>
+</div>
+</div>
+<script src="assets/app.js"></script>
+</body>
+</html>
