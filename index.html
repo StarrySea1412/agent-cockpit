@@ -84,7 +84,7 @@
 <p class="ch-lead">仪表的第一职责不是好看，是让你在关键三秒里知道该不该拉杆。Agent 没有驾驶舱的干活方式叫盲飞——而大多数人对 Agent 的全部观测，就是聊天窗口里那句「好的，我来处理」。</p>
 <h3><span class="h3n">⚓ 1.1</span>两种界面，两种读者</h3>
 <p>本篇标本是一台本机自研的 Agent 工作台：前端 <b>7,811 行</b> React、Django 后端带 <b>179 个测试</b>，底下接 hermes 网关。它的聊天页是一个 966 行的 ChatView，但真正让操作者睡得着的，是聊天流之外的另外三块：193 行的<strong>工具审批面板</strong>、侧栏的<strong>「运行状态」rail</strong>、以及一份 359 行的<strong>运行历史详情页</strong>。聊天流把过程<strong>转述</strong>成叙事——「我找到了三个文件，正在写入」；驾驶舱把过程<strong>摆</strong>成事实——一个 status 徽标、一个带倒计时的审批卡、一条逐条追加的事件日志。叙事可以说谎（模型会把「失败」说成「稍微遇到了一点阻力」），事实必须打点。</p>
-<p>系列对照：VOL.12《住进机房的 Agent》让 Agent 盯服务器，这一篇反过来——<b>人盯 Agent</b>。方向掉了个头，工程上的分水岭却是一样的：事实由确定性代码决定，叙事只负责说话。</p>
+<p>系列对照：<a href="https://starrysea1412.github.io/agent-patrol/" target="_blank" rel="noopener" style="text-decoration:underline dotted; text-underline-offset:3px">12《住进机房的 Agent》</a>让 Agent 盯服务器，这一篇反过来——<b>人盯 Agent</b>。方向掉了个头，工程上的分水岭却是一样的：事实由确定性代码决定，叙事只负责说话。</p>
 <div class="note"><b>把聊天窗口当驾驶舱，是这类事故的统一开头</b>：你看到「好的，我来处理」，十分钟后看到一段像模像样的总结——至于中间它调了几次工具、有没有拿到写文件的许可、token 烧了多少，聊天流一个字没提。它不是坏，它压根没被设计来回答这些问题。</div>
 <p><b>经典追问：为什么不把状态直接混进聊天流里说，非要单独做面板？</b>三个理由。①<strong>读者不同</strong>——聊天流是给用户读的散文，会被模型的措辞润色；仪表是给操作者和代码读的数据，一个布尔一个数字，没有修辞空间。②<strong>生命周期不同</strong>——聊天气泡是「说过就沉下去」的，第二条消息很快把第一条顶出视野；状态必须<strong>可轮询、可刷新</strong>：审批面板每 3 秒拉一次最新状态，永远显示当前事实，而不是三分钟前的事实。③<strong>消费方式不同</strong>——仪表的下游是代码：审批面板轮询的是 JSON（8 个字段，一个 status 枚举），不是一段需要再解析一遍的中文。所以分工很清楚：<b>聊天流可以「讲」，驾驶舱必须「摆」</b>。</p>
 <div class="fig"><img src="assets/ch1-blind.webp" alt="盲飞与亮起仪表的座舱对比" loading="lazy" style="width:100%;border-radius:12px;display:block">
@@ -151,7 +151,7 @@
 <p>八个字段，最重要的一个是最后那个：<code>expires_at</code>。它把「审批」从一个礼貌用语变成了一个<strong>有截止时间的状态</strong>——这张支票 120 秒后自动作废，第四章专门算这笔账。</p>
 <h3><span class="h3n">⚓ 2.2</span>SSE 是捷径，轮询是事实源</h3>
 <p>事件怎么到前端？两条通道。第一条是推送：流式响应里捎带，事件一发生就到。第二条是轮询：审批面板 <code>refetchInterval: 3000</code>（3 秒）、文件写入记录 <code>refetchInterval: 5000</code>（5 秒）、本地时钟每秒走一格驱动倒计时。推送图快，轮询图<strong>稳</strong>——推送断线就丢，轮询每次都从数据库拿<strong>当前事实</strong>。而且后端在每次轮询查询里顺手做了一件重要的事：<code>reconcile()</code> 把已经失效的行批量修正——运行结束的活跃审批改成 cancelled、被取消的改成 cancelled、过了 <code>expires_at</code> 的改成 expired。<b>轮询不只是拿数据，还是一次修复机会</b>；SSE 断了的三秒里，事实靠它兜底。</p>
-<p><b>经典追问：为什么有了 SSE 推送，还要每 3 秒轮询一次？</b>因为推送和事实源是两种东西。推送的语义是「事件发生时尽量告诉你」，它的失败模式全是静默的：断线、代理超时、标签页休眠，丢了你都不知道丢。而审批这种「人要据此做决定」的数据，宁可见了旧数据也不能见假数据——轮询每次都从库里重取，还顺路跑一遍 reconcile 修状态。VOL.08 拆过三条信号线怎么把数据运过来，这一篇补的是下一句：<b>运到之后，事实以库里的状态为准，推送只是让仪表转得更跟手的减速轮</b>。</p>
+<p><b>经典追问：为什么有了 SSE 推送，还要每 3 秒轮询一次？</b>因为推送和事实源是两种东西。推送的语义是「事件发生时尽量告诉你」，它的失败模式全是静默的：断线、代理超时、标签页休眠，丢了你都不知道丢。而审批这种「人要据此做决定」的数据，宁可见了旧数据也不能见假数据——轮询每次都从库里重取，还顺路跑一遍 reconcile 修状态。<a href="https://starrysea1412.github.io/agent-signals/" target="_blank" rel="noopener" style="text-decoration:underline dotted;text-underline-offset:3px">VOL.08</a> 拆过三条信号线怎么把数据运过来，这一篇补的是下一句：<b>运到之后，事实以库里的状态为准，推送只是让仪表转得更跟手的减速轮</b>。</p>
 <div class="fig"><img src="assets/ch2-stream.webp" alt="事件流传送带进驾驶舱" loading="lazy" style="width:100%;border-radius:12px;display:block">
 <div class="fig-cap">FIG. D · 事件流总装线：事件胶囊从机房一路驶进驾驶舱，分送到每块仪表的进线口（gpt-image-2.5 生成）</div>
 </div>
@@ -454,7 +454,7 @@ item = events.get(timeout=timeout)   <span class="c"># 泵线程把源事件转�
 </div>
 <h2 style="font-size:24px;margin:34px 0 6px">收尾：一条流，六种读法</h2>
 <p>驾驶舱的全部心思可以压成一句话：<b>让同一条事件流，在六种角色面前各被读一遍</b>——聊天流把它读成叙事，面板把它读成状态，闸门把它读成一张要兑现的支票，黑匣子把它读成只追加的历史，看门狗把它读成第一帧有没有准时出现，费用闸把它读成一段一段的账。写完这篇试了试标本的六个小样，最有意思的是互动 04：把批准后的单子晾到过期再点允许，回给浏览器的是那句 409——「终态不可复活，连更早的 allow 也不行」，这条注释本来只是为了堵一个双击竞态，三个月后读起来，是一份关于「承诺有时效」的完整声明。</p>
-<div class="site-foot">
+<div class="series-nav" style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center;align-items:baseline;font-family:var(--mono,Consolas,monospace);font-size:11px;letter-spacing:1px;color:var(--muted,#8a959c);margin:26px 0 0;padding:16px 0 0;border-top:1px solid var(--line,#d8d8cc)"><a href="https://starrysea1412.github.io/agent-toolkit/" style="color:inherit">← VOL.15 给 Agent 发一套趁手的工具</a><a href="https://starrysea1412.github.io/makers-notebook/" style="color:var(--orange,var(--steel,#3e5c6e));font-weight:700">☰ 全系列目录</a><a href="https://starrysea1412.github.io/agent-sandbox/" style="color:inherit">VOL.17 把危险关进笼子 →</a></div><div class="site-foot">
 <span>造物手记 VOL.16 · 给 Agent 装一块驾驶舱</span>
 <span>INSTRUMENT PANEL / 2026.11 / 六章 · 六段互动 · 零依赖</span>
 <span>交互确定性模拟 · 标本 hermes-agent-workbench · StarrySea1412</span>
