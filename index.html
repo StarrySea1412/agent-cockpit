@@ -86,6 +86,10 @@
 <p>本篇标本是一台本机自研的 Agent 工作台：前端 <b>7,811 行</b> React、Django 后端带 <b>179 个测试</b>，底下接 hermes 网关。它的聊天页是一个 966 行的 ChatView，但真正让操作者睡得着的，是聊天流之外的另外三块：193 行的<strong>工具审批面板</strong>、侧栏的<strong>「运行状态」rail</strong>、以及一份 359 行的<strong>运行历史详情页</strong>。聊天流把过程<strong>转述</strong>成叙事——「我找到了三个文件，正在写入」；驾驶舱把过程<strong>摆</strong>成事实——一个 status 徽标、一个带倒计时的审批卡、一条逐条追加的事件日志。叙事可以说谎（模型会把「失败」说成「稍微遇到了一点阻力」），事实必须打点。</p>
 <p>系列对照：<a href="https://starrysea1412.github.io/agent-patrol/" target="_blank" rel="noopener" style="text-decoration:underline dotted; text-underline-offset:3px">12《住进机房的 Agent》</a>让 Agent 盯服务器，这一篇反过来——<b>人盯 Agent</b>。方向掉了个头，工程上的分水岭却是一样的：事实由确定性代码决定，叙事只负责说话。</p>
 <div class="note"><b>把聊天窗口当驾驶舱，是这类事故的统一开头</b>：你看到「好的，我来处理」，十分钟后看到一段像模像样的总结——至于中间它调了几次工具、有没有拿到写文件的许可、token 烧了多少，聊天流一个字没提。它不是坏，它压根没被设计来回答这些问题。</div>
+<h3><span class="h3n">⚓ 1.2</span>三块面板的库存单</h3>
+<p>把「驾驶舱」拆成行数，设计预算的表态一目了然：主聊天 ChatView <b>966 行</b>最大；审批面板 ToolApprovalPanel <b>193 行</b>最小，却塞着三道防重保险（第四章细拆）；运行详情 AgentRunDetail <b>359 行</b>；运行历史 AgentRuns <b>211 行</b>——后两块合起来构成「回看」的完整链路。叙事流和观测流的耦合被压到最小：ChatView 的 onStatus 里，审批事件到达时只做一件事——<code>queryClient.invalidateQueries</code> 让审批面板自己去拉真相。<b>聊天流不承载状态，只负责提醒「真相变了」</b>。</p>
+<p>还有一处克制值得抄：ToolApprovalPanel 在无审批记录、无写入、无错误时<b>整块不渲染</b>（源码注释：空面板不占聊天版面）——观测 UI 的第一修养是「没有事实就不出场」，仪表空转比没有仪表更吵。</p>
+
 <p><b>经典追问：为什么不把状态直接混进聊天流里说，非要单独做面板？</b>三个理由。①<strong>读者不同</strong>——聊天流是给用户读的散文，会被模型的措辞润色；仪表是给操作者和代码读的数据，一个布尔一个数字，没有修辞空间。②<strong>生命周期不同</strong>——聊天气泡是「说过就沉下去」的，第二条消息很快把第一条顶出视野；状态必须<strong>可轮询、可刷新</strong>：审批面板每 3 秒拉一次最新状态，永远显示当前事实，而不是三分钟前的事实。③<strong>消费方式不同</strong>——仪表的下游是代码：审批面板轮询的是 JSON（8 个字段，一个 status 枚举），不是一段需要再解析一遍的中文。所以分工很清楚：<b>聊天流可以「讲」，驾驶舱必须「摆」</b>。</p>
 <div class="fig"><img src="assets/ch1-blind.webp" alt="盲飞与亮起仪表的座舱对比" loading="lazy" style="width:100%;border-radius:12px;display:block">
 <div class="fig-cap">FIG. C · 盲飞对照：左边没有仪表的座舱，右边同一座舱亮起读数——差别不是舒适度，是能不能在关键三秒做决定（gpt-image-2 生成）</div>
@@ -151,7 +155,21 @@
 <p>八个字段，最重要的一个是最后那个：<code>expires_at</code>。它把「审批」从一个礼貌用语变成了一个<strong>有截止时间的状态</strong>——这张支票 120 秒后自动作废，第四章专门算这笔账。</p>
 <h3><span class="h3n">⚓ 2.2</span>SSE 是捷径，轮询是事实源</h3>
 <p>事件怎么到前端？两条通道。第一条是推送：流式响应里捎带，事件一发生就到。第二条是轮询：审批面板 <code>refetchInterval: 3000</code>（3 秒）、文件写入记录 <code>refetchInterval: 5000</code>（5 秒）、本地时钟每秒走一格驱动倒计时。推送图快，轮询图<strong>稳</strong>——推送断线就丢，轮询每次都从数据库拿<strong>当前事实</strong>。而且后端在每次轮询查询里顺手做了一件重要的事：<code>reconcile()</code> 把已经失效的行批量修正——运行结束的活跃审批改成 cancelled、被取消的改成 cancelled、过了 <code>expires_at</code> 的改成 expired。<b>轮询不只是拿数据，还是一次修复机会</b>；SSE 断了的三秒里，事实靠它兜底。</p>
+<h3><span class="h3n">⚓ 2.3</span>增量的接收端：thought_delta 的合并律</h3>
+<p>九种事件里最容易被轻看的是 thought_delta——「思考的增量」。它的接收端有自己的语法（ChatView 原样节选）：</p>
+<div class="term">
+<div class="term-head"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="tt">onThoughtDelta · 合并律</span></div>
+<pre>const last = thoughts[thoughts.length - 1]
+<span class="k">if</span> (last?.source === <span class="s">'model'</span>) {
+  merged = { ...last, content: (last.content || <span class="s">''</span>) + text }   <span class="c">// 上一条来自模型：就地拼接</span>
+} <span class="k">else</span> {
+  thoughts.push({ title: <span class="s">'模型思考'</span>, content: text, source: <span class="s">'model'</span> })  <span class="c">// 否则：新开一条</span>
+}</pre>
+</div>
+<p>流式协议把文本切成碎片发出，<b>「段落感」是在接收端重建的</b>：碎片认领前一条的尾巴就续写，认领不上就另起一段。分发器本身只有九行 if（api/projects.js L115–124，每种事件一个认领人）——线协议薄到可以背诵，智能全部留在两端。</p>
+
 <p><b>经典追问：为什么有了 SSE 推送，还要每 3 秒轮询一次？</b>因为推送和事实源是两种东西。推送的语义是「事件发生时尽量告诉你」，它的失败模式全是静默的：断线、代理超时、标签页休眠，丢了你都不知道丢。而审批这种「人要据此做决定」的数据，宁可见了旧数据也不能见假数据——轮询每次都从库里重取，还顺路跑一遍 reconcile 修状态。<a href="https://starrysea1412.github.io/agent-signals/" target="_blank" rel="noopener" style="text-decoration:underline dotted;text-underline-offset:3px">VOL.08</a> 拆过三条信号线怎么把数据运过来，这一篇补的是下一句：<b>运到之后，事实以库里的状态为准，推送只是让仪表转得更跟手的减速轮</b>。</p>
+<p>顺带补一笔观测的分级：审批 3 秒、写入 5 秒、本地时钟 1 秒——三种频率对应三种紧急度，<b>轮询不是一刀切的常量，是按决策窗口定制的节拍</b>。审批要人来得及点，写入只求最终一致，时钟只管倒计时的显示精度。</p>
 <div class="fig"><img src="assets/ch2-stream.webp" alt="事件流传送带进驾驶舱" loading="lazy" style="width:100%;border-radius:12px;display:block">
 <div class="fig-cap">FIG. D · 事件流总装线：事件胶囊从机房一路驶进驾驶舱，分送到每块仪表的进线口（gpt-image-2.5 生成）</div>
 </div>
@@ -213,6 +231,10 @@
 <tr><td class="k">cancelled</td><td>reconcile 扫到运行结束/取消</td><td>终态，error=「运行已取消。」</td><td>已取消</td></tr>
 </table></div>
 <p>对照旁证：本机另一台生成工作台的执行轨迹枚举了 <b>11 个阶段</b>（queued / preparing / requesting / waiting / retrying / downloading / saving / completed / failed / cancelled / recovered）——枚举粒度不同，原则相同：<b>面板上出现的每一个词，都必须是枚举里的一项，且带一句人话标签</b>。标本前端把八态翻成中文（<code>STATUS_LABELS</code>），并给 pending 卡上印了一句很关键的提示：「<b>批准不代表执行成功</b>」。</p>
+<h3><span class="h3n">⚓ 3.2</span>运行机的防竞态：只许活人改状态</h3>
+<p>五块仪表里最老实的其实是那台五态运行机（pending / running / done / failed / cancelled）——它比审批机多一道<b>并发写防御</b>：状态转移走 update_status_atomic，<b>只允许从 pending 或 running 里转出</b>。运行结束之后，任何迟到的写入都不许再把 done 改成别的——「尸体不许被搬动」。字段上还带着两本小账：step_count 步数计数（对照 max_steps 默认 8 的预算）与 tools_used 的工具名清单——一个 run 干了什么、干了多少步，落库即审计。</p>
+<p>两台状态机的乘积才是完整的事实空间：运行机管「这次任务」，审批机管「任务里的每次伸手」——一个在顶上定生死，一个在底下记每次放行。<b>维度不同，枚举各自穷举，谁也不冒充谁。</b></p>
+
 <p><b>经典追问：五个状态不够用吗？为什么非要八个？</b>逐个数「多出来的」：denied 和 expired 是审批的两种死法——「被拒绝」和「没人理」是两回事，合并成 failed，三个月后的你就分不清是工具失败还是人没理它。approved 单列才是精髓：「人批了」和「机器拿了」之间有一段真空，真空期会撞上三种事故——运行被取消、支票过期、同一张单被重复提交。把真空命名成状态，事故才有处可查：查到 approved 卡住 30 秒，是线程死了；查到直接从 pending 跳 running，那数据是假的。<b>每个多出来的状态，都是一类真实事故的姓名</b>。</p>
 <div class="fig"><img src="assets/ch3-lamps.webp" alt="八盏状态信号灯" loading="lazy" style="width:100%;border-radius:12px;display:block">
 <div class="fig-cap">FIG. E · 八态排成一排信号灯：两盏琥珀两盏红——每一盏背后是一类有名字的事故（gpt-image-2.5-sunburst 生成）</div>
@@ -280,7 +302,20 @@ same = execution.decision == decision <span class="k">and</span> execution.statu
 <span class="k">return</span> Response(..., status=<span class="s">200</span> <span class="k">if</span> changed <span class="k">or</span> same <span class="k">else</span> <span class="s">409</span>)</pre>
 </div>
 <p>前端配合了三道保险：点过的单子进 <code>locks</code> 集合防双击、决定提交成功后 <code>cancelQueries</code> 取消在途轮询防止旧 pending 按钮回填、本地倒计时到期就把按钮禁用交给服务端定夺。还有一台配套的回滚机：文件写入记录三态 <code>applied / rejected / rolled_back</code>，卡片上用 difflib 生成 unified diff 供人核——「<b>批准前看 diff，批准后可回滚</b>」，回滚非 applied 状态会得到一句 409：「仅已应用的写入可回滚（当前：rolled_back）。」</p>
+<h3><span class="h3n">⚓ 4.3</span>决策端的三道保险：按钮背后的防重学</h3>
+<p>人这一侧的 decide() 也不裸奔，三道保险逐个看（ToolApprovalPanel 原样）：</p>
+<div class="term">
+<div class="term-head"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="tt">decide() · 三道保险</span></div>
+<pre><span class="k">if</span> (locks.current.has(record.id) || record.status !== <span class="s">'pending'</span>) <span class="k">return</span>  <span class="c">① 锁集合：双击与旧状态直接挡</span>
+locks.current.add(record.id)
+<span class="k">await</span> queryClient.cancelQueries({ queryKey })  <span class="c">② 撤回在途轮询</span>
+<span class="c">// Cancel a pre-decision poll so it cannot restore stale pending buttons.</span>
+disabled = state.busy || state.submitted || elapsed || Boolean(error)  <span class="c">③ 四条件禁用</span></pre>
+</div>
+<p>第②道最见功力：点「允许」之后立刻取消还没回来的那一轮轮询——不然旧响应到达，会把已经消失的 pending 按钮原样画回来，用户再点一次就是第四次请求。第③道的 elapsed 由每秒一跳的本地时钟驱动：倒计时归零的瞬间按钮先禁用，<b>把最终裁决让给服务端的 reconcile</b>——前端不猜终态，它只是礼貌地收起自己的手。</p>
+
 <p><b>经典追问：批准为什么要 120 秒过期？永不失效不行吗？</b>因为你批准的从来不是一条命令，而是<strong>某个会话状态里的一段意图</strong>——「在这个运行里、对这份参数、现在执行」。支票兑现之前，世界会变：运行可能被取消，参数对应的上下文可能已经滚过一轮，你自己可能早就切走了。永不失效的批准就是把三个月前的决定永久绑在未来，而当时的那次点头早就失去了前提。过期时间不是不信任人，是<strong>给「批了但没执行」这类僵尸状态一个体面的葬礼</strong>——reconcile 扫到它，标 expired、写 error，下不为例。所以标本的前端在过期卡上只显示一个动作：刷新，让服务端状态说话。</p>
+<p>「120 秒」还藏着一层对人性的体贴：它比「去泡杯茶」短，比「愣个神」长——支票的时效是按<b>人的注意力节奏</b>定的，不只是按机器的竞态窗口定的。数字是工程量纲，节奏是体验量纲，两个都要过关。</p>
 <div class="demo" id="d4">
   <div class="demo-head">
     <span class="demo-tag">互动 04</span>
@@ -339,7 +374,18 @@ same = execution.decision == decision <span class="k">and</span> execution.statu
 <p>另一台生成工作台的 <code>execution-trace.js</code>（181 行）把记录仪的纪律写得更全。其一<b>脱敏</b>：<code>redactTraceText</code> 在落库前把 Bearer、sk- 开头的密钥、<code>key=value</code> 形态的凭据全部换成 <code>[已隐藏]</code>，URL 只留 origin + path——收集面还更细：<code>traceSecrets()</code> 把 apiKey、cookie、自定义头、连 URL 里带的密码都收进密钥清单，按长度倒序替换，防止「先替换短密钥把长密钥截断」的漏洞。其二<b>合并</b>：waiting / preparing / downloading 三类同阶段更新不追加新行，只刷新当前行——2 秒轮询一次的等待期，60 行数据压成 1 行。其三<b>限长</b>：<code>TRACE_LIMIT = 40</code> 滚动窗口，永远只留最近 40 条。</p>
 <div class="note"><b>三条纪律各挡一类事故</b>：不脱敏，记录仪就是密码泄露源——日志总会被导出、贴群、进工单；不合并，记录仪被轮询淹没——每 2 秒一条「仍在等待」，一晚就是 43,200 行同质噪声，真正的异常时刻反而找不到；不限长，记录仪变成磁盘刺客——黑匣子要有容量，是因为它只为「最近的坠机」服务。</div>
 <p>剪辑工作台的轨迹面板是第四个旁证：<code>GET /api/job/{id}</code> 返回 <code>steps: [{t, msg}]</code>——<b>纯追加、绝不改写</b>的历史，前端按相对时间 mm:ss 渲染。README 里它有个自带重量的名字：「任务轨迹面板（反黑盒红线）」。这三台机器没商量过，却达成了同一份共识：驾驶舱给当下，黑匣子给事后；黑匣子的写入者只管如实追加，永不为好看而改写历史。</p>
+<h3><span class="h3n">⚓ 5.3</span>diff 与回滚：给人看的账，给机器留的门</h3>
+<p>每次文件写入都留一行版本账（WorkspaceWrite）：previous 存旧文、proposed 存新文、status 记三态。人看的 diff 在序列化器里现算（原样节选）：</p>
+<div class="term">
+<div class="term-head"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="tt">WorkspaceWriteSerializer.get_diff</span></div>
+<pre><span class="s">""</span>.join(difflib.unified_diff(
+    (obj.previous or <span class="s">""</span>).splitlines(keepends=<span class="k">True</span>), obj.proposed.splitlines(keepends=<span class="k">True</span>),
+    fromfile=<span class="s">f"a/{obj.path}"</span>, tofile=<span class="s">f"b/{obj.path}"</span>))</pre>
+</div>
+<p>回滚端点的三态答复值得整段读：已回滚的再回滚 → <b>200</b>（幂等，重复请求是读不是写）；非 applied 状态 → <b>409「仅已应用的写入可回滚（当前：rolled_back）。」</b>；路径越出工作区 → <b>409「路径越出工作区范围。」</b>——错误消息里带着「当前是什么、为什么不行」，与第四章审批的报错是同一种语法。<b>批准前看 diff、批准后可回滚、回滚错了有回音</b>——文件写入的整条链路没有一处让你两眼一抹黑。</p>
+
 <p><b>经典追问：记录仪为什么要合并同阶段，而不是老老实实全量记录？</b>因为记录仪的价值密度分布极不均匀：正常等待期的两百次「仍在 waiting」是零信息重复，异常时刻那一毫秒的三条连续事件才是全部分量。全量记录有两个真实代价：检索时，异常事件被 43,200 行噪声顶出视野（人翻日志、grep 分页都一样）；存储时，「 forever 保留一切」的美好愿望在磁盘面前从不成立。合并的正确姿势是把两个概念分开记账——<b>状态进时间轴，更新次数进计数器</b>：那一行 waiting 旁边标注「×214」，信息一点没丢，噪声少了一百多倍。</p>
+<p>合并的逆命题同样成立：<b>绝不改写</b>。合并发生在「同一阶段的状态行」上，而 steps 数组只追加——状态可以折叠，因为它是现在时；历史不许折叠，因为它是过去时。一旦历史行也能改写，重放就永远不可信了。</p>
 <div class="demo" id="d5">
   <div class="demo-head">
     <span class="demo-tag">互动 05</span>
@@ -403,7 +449,23 @@ item = events.get(timeout=timeout)   <span class="c"># 泵线程把源事件转�
 <p>看门狗开火之后，链路切到备用渠道——此刻用户屏幕上出现什么？标本的选择写在前端注释里（ChatView 原样）：「<b>链路切换是运行时降级，不是致命错误：中性提示样式，不渲染成红色错误横幅</b>」。横幅换成一条中性 notice，带「复制诊断」按钮——诊断文本里是网关、阶段、降级原因的结构化字段，贴给运维就能查。红色留给真正的终态失败；把降级染红，等于训练用户对红色免疫。旁边还有一层保险：Agent 侧的步数上限 <code>max_steps = 8</code> 配着 <code>update_status_atomic</code>（只允许 pending/running 内转移，防竞态）——失控的循环在第 8 步被物理切断。</p>
 <h3><span class="h3n">⚓ 6.3</span>费用闸门：超支只追这一段的账</h3>
 <p>警戒线的最后一段来自剪辑工作台（IN-1 费用闸门，真实常量）：执行器每过一节点比对「本段实际消耗 vs 该段预估」，超阈值就停——<code>run_state</code> 退回 <code>draft</code>，已通过节点保留，把「预估 vs 实际」落进 <code>cost_gate</code> 字段进 UI（反黑盒）。而它在门禁通过时的记账动作很讲究（源码原样）：<code>cost_gate = {'status': 'ok', 'gate_id': gate_nid, 'segment_started_at': time.time()}</code>——<b>人审通过即新开一段，预算按段重置，超支只追这一段的账</b>。如果把整次运行当一本账，一次误判就能锁死全局；分段之后，误判的代价被隔离在段内。</p>
+<h3><span class="h3n">⚓ 6.4</span>泵与队列：看门狗自己的工程学</h3>
+<p>看门狗自己也不能挂——stream_guard 的实现是一台小泵（30 行，原样机制）：</p>
+<div class="term">
+<div class="term-head"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="tt">first_token_guarded · 泵与队列</span></div>
+<pre><span class="k">def</span> _pump():                      <span class="c"># 后台线程：消费源迭代器</span>
+    <span class="k">try</span>:
+        <span class="k">for</span> item <span class="k">in</span> source: events.put(item)
+    <span class="k">except</span> BaseException <span class="k">as</span> exc:
+        events.put(exc)           <span class="c"># 异常也被当事件转交，不在泵里炸</span>
+    <span class="k">finally</span>:
+        events.put(END)            <span class="c"># 哨兵：流的终点也是队列里的一条</span>
+item = events.get(timeout=timeout) <span class="c"># 主线程：带预算地等第一个事件</span></pre>
+</div>
+<p>四个设计点各挡一类事故：① 泵是 daemon 线程——就算主线程弃船，泵也随进程退出，不留孤儿；② 上游异常被包成队列里的一个元素原样转交，主线程在 <b>finally</b> 里关源——认输也把连接收干净（呼应第三章「不隔离」的补丁式诚实）；③ END 哨兵让「流完了」和「超时了」是两种可区分的信号；④ 主线程只对<b>第一个</b>事件带 90 秒预算，其后 events.get() 不设限——首帧警戒、正文放行，与 6.1 的两段制度互为表里。工具调用那条线是同一个数字的另一种用法：MCP 客户端 CALL_TIMEOUT = 90——<b>同数不同职</b>：一个是「等第一帧的上限」，一个是「一次完整调用的上限」。</p>
+
 <p><b>经典追问：看门狗为什么只看第一个事件，后面的间隔就不管了？</b>因为一条流的时间线其实是两段制度。第一段（连接后到首事件前）：上游可能已经死了，但它不报错也不吐字——唯一可靠的判据就是「等了多少秒还没有第一个事件」，所以用看门狗硬性限 90 秒。第二段（首事件之后）：分片间隔是模型思考的正常节奏——长思考停 40 秒完全健康，如果也用 90 秒卡间隔，正常的深思会被误杀。所以标本的注释写得毫不含糊：「首个事件一旦到达，后续分片间隔交回 read 超时管」。一把尺子量两段制度，要么误杀思考，要么放过了挂死——<b>切开管，是唯一两头都站得住的切法</b>。</p>
+<p>把三个超时数字并排放着看更清楚：90 秒等首帧、240/600 秒管 read——<b>三个数字三段制度，各管各的时间尺度</b>。合并成一个大超时是最省事的写法，也是最坏的写法：它让「思考很久的健康流」和「早已死掉的连接」不可区分。</p>
 <div class="demo" id="d6">
   <div class="demo-head">
     <span class="demo-tag">互动 06</span>
